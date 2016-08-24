@@ -1,12 +1,12 @@
-from django.core.management.base import NoArgsCommand
+from django.core.management.base import BaseCommand
 from django_beanstalkd import BeanstalkClient
 
 
-class Command(NoArgsCommand):
+class Command(BaseCommand):
     help = "Execute an example command with the django_beanstalk_jobs interface"
     __doc__ = help
 
-    def handle_noargs(self, **options):
+    def handle(self, *args, **options):
         client = BeanstalkClient()
 
         print "Asynchronous Beanstalk Call"

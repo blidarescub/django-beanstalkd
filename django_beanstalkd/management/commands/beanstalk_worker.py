@@ -1,12 +1,11 @@
 import logging
-from optparse import make_option
 import os
 import sys
 import traceback
 
 import time
 from django.conf import settings
-from django.core.management.base import NoArgsCommand
+from django.core.management.base import BaseCommand
 from django_beanstalkd import connect_beanstalkd, BeanstalkError
 from beanstalkc import SocketError
 
@@ -14,20 +13,32 @@ from beanstalkc import SocketError
 logger = logging.getLogger('django_beanstalkd')
 logger.addHandler(logging.StreamHandler())
 
-class Command(NoArgsCommand):
+
+class Command(BaseCommand):
     help = "Start a Beanstalk worker serving all registered Beanstalk jobs"
     __doc__ = help
-    option_list = NoArgsCommand.option_list + (
-        make_option('-w', '--workers', action='store', dest='worker_count',
-                    default='1', help='Number of workers to spawn.'),
-        make_option('-l', '--log-level', action='store', dest='log_level',
-                    default='info', help='Log level of worker process (one of '
-                    '"debug", "info", "warning", "error")'),
-    )
-    children = [] # list of worker processes
+    children = []  # list of worker processes
     jobs = {}
 
-    def handle_noargs(self, **options):
+    def add_arguments(self, parser):
+        # Named (optional) arguments
+        parser.add_argument(
+            '--workers',
+            action='store',
+            dest='worker_count',
+            default='1',
+            help='Number of workers to spawn.',
+        )
+        parser.add_argument(
+            '--log-level',
+            action='store',
+            dest='log_level',
+            default='info',
+            help='Log level of worker process (one of '
+                    '"debug", "info", "warning", "error")',
+        )
+
+    def handle(self, *args, **options):
         # set log level
         logger.setLevel(getattr(logging, options['log_level'].upper()))
 
@@ -140,13 +151,7 @@ class Command(NoArgsCommand):
                     self.jobs[job_name](job.body)
                 except Exception, e:
                     tp, value, tb = sys.exc_info()
-                    logger.error('Error while calling "%s" with arg "%s": '
-                        '%s' % (
-                            job_name,
-                            job.body,
-                            e,
-                        )
-                    )
+                    logger.error('Error while calling "%s" with arg "%s": %s' % (job_name, job.body, e))
                     logger.debug("%s:%s" % (tp.__name__, value))
                     logger.debug("\n".join(traceback.format_tb(tb)))
                     job.bury()
